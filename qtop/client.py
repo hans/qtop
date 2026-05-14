@@ -66,10 +66,31 @@ def _findfloat(elem: ET.Element | None, tags: tuple[str, ...]) -> float | None:
 
 
 def _parse_sge_datetime(s: str | None) -> datetime | None:
-    if not s:
+    """Parse SGE time strings across the formats found in the wild.
+
+    Handles ISO-like, the qstat -j 'Mon Apr 20 13:40:30 2026' format, and
+    epoch seconds / milliseconds (some SGE versions emit pure integers).
+    """
+    if s is None:
         return None
-    # SGE emits ISO-ish like 2026-05-14T10:00:00 or with .000 suffix
-    for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+    s = s.strip()
+    if not s or s in ("-", "0", "NONE", "N/A"):
+        return None
+    # Epoch timestamps (pure digits, optionally millisecond-scale)
+    if s.isdigit():
+        try:
+            n = int(s)
+            if n > 10 ** 12:  # milliseconds
+                n //= 1000
+            return datetime.fromtimestamp(n)
+        except (OSError, OverflowError, ValueError):
+            return None
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S",
+        "%a %b %d %H:%M:%S %Y",  # qstat -j 'submission_time' format
+    ):
         try:
             return datetime.strptime(s, fmt)
         except ValueError:
@@ -99,10 +120,25 @@ def _job_from_xml(jl: ET.Element) -> Job:
         elif rname == "mem_free":
             mem_free_bytes = parse_memory(hr.text)
 
-    # Actual usage from -ext: <JAT_scaled_usage_list><scaled><UA_name>cpu</UA_name><UA_value>123.4</UA_value></scaled>...
+    # Actual usage from -ext. Two schemas in the wild:
+    #   (a) <JAT_scaled_usage_list><scaled><UA_name>cpu</UA_name><UA_value>123.4</UA_value></scaled>...
+    #   (b) inline tags directly on <job_list>: <cpu_usage>, <mem_usage>, <io_usage>
+    #       (SoGE / arc.liv.ac.uk schema).
+    # mem_usage in form (b) is cumulative GiB-seconds, not a memory size —
+    # we stash it on the Job and convert it later in SGEClient.fetch_jobs
+    # once start_time is known.
     cpu_seconds: float | None = None
     mem_used_bytes: int | None = None
     maxvmem_bytes: int | None = None
+    mem_usage_gb_seconds: float | None = None
+
+    inline_cpu = _findfloat(jl, ("cpu_usage",))
+    if inline_cpu is not None:
+        cpu_seconds = inline_cpu
+    inline_mem_gbs = _findfloat(jl, ("mem_usage",))
+    if inline_mem_gbs is not None:
+        mem_usage_gb_seconds = inline_mem_gbs
+
     usage_container = jl.find("JAT_scaled_usage_list")
     if usage_container is None:
         usage_container = jl.find("usage")
@@ -155,6 +191,7 @@ def _job_from_xml(jl: ET.Element) -> Job:
         cpu_seconds=cpu_seconds,
         mem_used_bytes=mem_used_bytes,
         maxvmem_bytes=maxvmem_bytes,
+        mem_usage_gb_seconds=mem_usage_gb_seconds,
     )
 
 
@@ -246,6 +283,44 @@ def parse_qstat_j(text: str) -> dict[str, str]:
     return result
 
 
+def _merge_ext_into_base(base: list[Job], ext_index: dict[str, Job]) -> None:
+    """Copy usage / resource-request fields from the extended-call jobs onto
+    the corresponding base jobs (matched by job_id). Mutates base in place."""
+    for j in base:
+        e = ext_index.get(j.job_id)
+        if e is None:
+            continue
+        if e.cpu_seconds is not None:
+            j.cpu_seconds = e.cpu_seconds
+        if e.mem_used_bytes is not None:
+            j.mem_used_bytes = e.mem_used_bytes
+        if e.maxvmem_bytes is not None:
+            j.maxvmem_bytes = e.maxvmem_bytes
+        if e.mem_usage_gb_seconds is not None:
+            j.mem_usage_gb_seconds = e.mem_usage_gb_seconds
+        if e.h_vmem_bytes is not None:
+            j.h_vmem_bytes = e.h_vmem_bytes
+        if e.mem_free_bytes is not None:
+            j.mem_free_bytes = e.mem_free_bytes
+
+
+def _populate_mem_used_from_gb_seconds(jobs: list[Job], now: datetime) -> None:
+    """For SGE variants whose <mem_usage> is cumulative GiB-seconds rather
+    than a memory size, derive a running-average mem_used_bytes from the
+    cumulative integral and elapsed time. Only applied when mem_used_bytes
+    isn't already known from a direct vmem/maxvmem field."""
+    for j in jobs:
+        if j.mem_used_bytes is not None:
+            continue
+        if j.mem_usage_gb_seconds is None or j.start_time is None:
+            continue
+        elapsed_s = (now - j.start_time).total_seconds()
+        if elapsed_s <= 0:
+            continue
+        avg_gib = j.mem_usage_gb_seconds / elapsed_s
+        j.mem_used_bytes = int(avg_gib * 1024 ** 3)
+
+
 class SGEClient:
     """Public API for fetching SGE cluster state.
 
@@ -262,15 +337,51 @@ class SGEClient:
         self._history_size = history_size
         self._cpu_history: dict[str, deque[tuple[float, float]]] = {}
         self._now_fn = now_fn
+        # Set after each fetch_jobs() — None on full success, otherwise a
+        # human-readable note (e.g. "extended usage unavailable: ...") that
+        # the UI surfaces in the summary bar.
+        self.last_status: str | None = None
 
     # ---- public API ----
 
     def fetch_jobs(self, user: str = "*") -> list[Job]:
-        """Run qstat, parse, compute efficiencies. Raises RuntimeError on failure."""
-        xml = self._run_qstat(user)
-        jobs = parse_qstat_xml(xml)
+        """Run qstat, parse, compute efficiencies. Raises RuntimeError on failure.
+
+        Strategy: run two qstat calls and merge them, because different SGE
+        variants surface different fields under different flags. Specifically:
+
+          - `qstat -xml`         gives state + JAT_start_time + queue + slots
+                                 but no usage and no resource requests.
+          - `qstat -ext -r -xml` gives usage (<cpu_usage>, <mem_usage>) and
+                                 <hard_request> blocks, but on some SGE forks
+                                 (SoGE) DROPS JAT_start_time.
+
+        We always need the base call (job list never empty if jobs exist) and
+        merge usage / requests from the extended call when available.
+        """
+        base_xml = self._run(["qstat", "-xml", "-u", user])
+        jobs = parse_qstat_xml(base_xml)
+
+        ext_status: str | None = None
+        try:
+            ext_xml = self._run_qstat_ext(user)
+            ext_index = {j.job_id: j for j in parse_qstat_xml(ext_xml)}
+            _merge_ext_into_base(jobs, ext_index)
+        except RuntimeError as exc:
+            ext_status = f"extended usage unavailable: {exc}"
+
+        _populate_mem_used_from_gb_seconds(jobs, datetime.now())
         self._update_efficiency(jobs)
+        self.last_status = ext_status
         return jobs
+
+    def _run_qstat_ext(self, user: str) -> str:
+        """Best-effort: prefer -ext -r -xml (usage + requests); fall back to
+        -ext -xml alone (usage only) if -r is unsupported."""
+        try:
+            return self._run(["qstat", "-ext", "-r", "-xml", "-u", user])
+        except RuntimeError:
+            return self._run(["qstat", "-ext", "-xml", "-u", user])
 
     def fetch_hosts(self) -> list[Host]:
         xml = self._run(["qhost", "-xml"])
@@ -346,16 +457,6 @@ class SGEClient:
                 del self._cpu_history[stale_id]
 
     # ---- subprocess plumbing ----
-
-    def _run_qstat(self, user: str) -> str:
-        """Run qstat with the preferred verbose flags, falling back if unsupported."""
-        # Preferred: extended usage + resource requests in one call
-        try:
-            return self._run(["qstat", "-ext", "-r", "-xml", "-u", user])
-        except RuntimeError:
-            pass
-        # Fall back to plain XML (no usage / requests)
-        return self._run(["qstat", "-xml", "-u", user])
 
     def _run(self, cmd: list[str]) -> str:
         try:

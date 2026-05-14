@@ -1,0 +1,45 @@
+<?xml version='1.0'?>
+<job_info  xmlns:xsd="http://arc.liv.ac.uk/repos/darcs/sge/source/dist/util/resources/schemas/qstat/qstat.xsd">
+  <queue_info>
+    <job_list state="running">
+      <JB_job_number>916592</JB_job_number>
+      <JAT_prio>0.53227</JAT_prio>
+      <JAT_ntix>0.50000</JAT_ntix>
+      <JB_name>trf_NP113_B1_00_json</JB_name>
+      <JB_owner>thosman</JB_owner>
+      <JB_project></JB_project>
+      <JB_department>defaultdepartment</JB_department>
+      <state>r</state>
+      <cpu_usage>19014.00000</cpu_usage>
+      <mem_usage>234829.08516</mem_usage>
+      <io_usage>4.62919</io_usage>
+      <tickets>0</tickets>
+      <JAT_share>0.00000</JAT_share>
+      <queue_name>pia-batch.q@pia</queue_name>
+      <slots>4</slots>
+      <full_job_name>trf_NP113_B1_00_json</full_job_name>
+      <requested_pe name="smp">4</requested_pe>
+      <granted_pe name="smp">4</granted_pe>
+      <hard_request name="h_vmem" resource_contribution="0.000000">8G</hard_request>
+      <hard_request name="mem_job" resource_contribution="0.000000">8G</hard_request>
+      <hard_req_queue>pia-batch.q</hard_req_queue>
+      <binding>NONE</binding>
+    </job_list>
+    <job_list state="running">
+      <JB_job_number>807314</JB_job_number>
+      <JAT_prio>0.50500</JAT_prio>
+      <JB_name>tokenize_unknown</JB_name>
+      <JB_owner>aaabedi</JB_owner>
+      <state>dr</state>
+      <tickets>0</tickets>
+      <JAT_share>0.00000</JAT_share>
+      <queue_name>mind-gpu@mind6</queue_name>
+      <slots>1</slots>
+      <hard_request name="h_vmem" resource_contribution="0.000000">32000M</hard_request>
+      <hard_request name="h_rt" resource_contribution="0.000000">1200</hard_request>
+      <hard_request name="gpu" resource_contribution="0.000000">1</hard_request>
+      <hard_req_queue>mind-gpu</hard_req_queue>
+      <binding>NONE</binding>
+    </job_list>
+  </queue_info>
+</job_info>

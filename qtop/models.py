@@ -54,6 +54,10 @@ class Job:
     cpu_seconds: float | None = None
     mem_used_bytes: int | None = None
     maxvmem_bytes: int | None = None
+    # Some SGE variants emit <mem_usage> in cumulative GiB-seconds rather than
+    # an instantaneous size. Stored raw here; SGEClient converts it to
+    # mem_used_bytes (running average) after start_time is merged in.
+    mem_usage_gb_seconds: float | None = None
     cpu_efficiency: float | None = None
     mem_efficiency: float | None = None
 

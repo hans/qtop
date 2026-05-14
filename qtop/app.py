@@ -356,7 +356,7 @@ class QtopApp(App):
             jobs = self.client.fetch_jobs(self.user)
             hosts = self.client.fetch_hosts()
             summary = self.client.fetch_summary(jobs, hosts)
-            summary.status = None
+            summary.status = getattr(self.client, "last_status", None)
         except RuntimeError as e:
             jobs = self._jobs
             summary = ClusterSummary(
@@ -419,6 +419,9 @@ class QtopApp(App):
         jt.clear()
         target_row = None
         for j in self._filtered_sorted_jobs():
+            # Some SGE variants don't expose JB_submission_time in XML at all
+            # (only in qstat -j). Fall back to start_time so the column is
+            # still informative for running jobs.
             jt.add_row(
                 j.job_id,
                 j.name,
@@ -426,7 +429,7 @@ class QtopApp(App):
                 _state_cell(j),
                 j.queue or "-",
                 str(j.slots),
-                _fmt_time(j.submit_time),
+                _fmt_time(j.submit_time or j.start_time),
                 _fmt_elapsed(j.start_time),
                 key=j.job_id,
             )

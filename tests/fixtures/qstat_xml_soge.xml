@@ -1,0 +1,27 @@
+<?xml version='1.0'?>
+<job_info  xmlns:xsd="http://arc.liv.ac.uk/repos/darcs/sge/source/dist/util/resources/schemas/qstat/qstat.xsd">
+  <queue_info>
+    <job_list state="running">
+      <JB_job_number>916592</JB_job_number>
+      <JAT_prio>0.53227</JAT_prio>
+      <JB_name>trf_NP113_B1_00_json</JB_name>
+      <JB_owner>thosman</JB_owner>
+      <state>r</state>
+      <JAT_start_time>2026-05-14T09:58:24</JAT_start_time>
+      <queue_name>pia-batch.q@pia</queue_name>
+      <slots>4</slots>
+    </job_list>
+    <job_list state="running">
+      <JB_job_number>807314</JB_job_number>
+      <JAT_prio>0.50500</JAT_prio>
+      <JB_name>tokenize_unknown</JB_name>
+      <JB_owner>aaabedi</JB_owner>
+      <state>dr</state>
+      <JAT_start_time>2026-04-20T13:40:45</JAT_start_time>
+      <queue_name>mind-gpu@mind6</queue_name>
+      <slots>1</slots>
+    </job_list>
+  </queue_info>
+  <job_info>
+  </job_info>
+</job_info>
