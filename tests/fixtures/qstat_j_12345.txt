@@ -1,0 +1,22 @@
+==============================================================
+job_number:                 12345
+exec_file:                  job_scripts/12345
+submission_time:            Thu May 14 09:30:00 2026
+owner:                      alice
+uid:                        1001
+group:                      researchers
+sge_o_home:                 /home/alice
+account:                    sge
+hard resource_list:         h_vmem=8G,mem_free=4G
+mail_list:                  alice@example.com
+notify:                     FALSE
+job_name:                   train_alpha
+priority:                   0
+jobshare:                   0
+hard_queue_list:            all.q
+restart:                    n
+env_list:                   PATH=/usr/bin:/bin,
+                            HOME=/home/alice
+script_file:                run.sh
+project:                    deep-learning
+scheduling info:            (Collecting of scheduler job information is turned off)

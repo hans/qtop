@@ -1,0 +1,72 @@
+<?xml version='1.0'?>
+<job_info xmlns:xsd="http://gridscheduler.sourceforge.net/source/xsd/qstat.xsd">
+  <queue_info>
+    <job_list state="running">
+      <JB_job_number>5001</JB_job_number>
+      <JAT_prio>0.50500</JAT_prio>
+      <JB_name>train_alpha</JB_name>
+      <JB_owner>alice</JB_owner>
+      <state>r</state>
+      <JAT_start_time>2026-05-14T09:30:00</JAT_start_time>
+      <queue_name>all.q@node01</queue_name>
+      <slots>4</slots>
+      <JB_submission_time>2026-05-14T09:29:00</JB_submission_time>
+      <hard_request name="h_vmem">8G</hard_request>
+      <hard_request name="mem_free">4G</hard_request>
+      <JAT_scaled_usage_list>
+        <scaled>
+          <UA_name>cpu</UA_name>
+          <UA_value>1234.5</UA_value>
+        </scaled>
+        <scaled>
+          <UA_name>vmem</UA_name>
+          <UA_value>5.500G</UA_value>
+        </scaled>
+        <scaled>
+          <UA_name>maxvmem</UA_name>
+          <UA_value>6.250G</UA_value>
+        </scaled>
+      </JAT_scaled_usage_list>
+    </job_list>
+    <job_list state="running">
+      <JB_job_number>5002</JB_job_number>
+      <JB_name>infer_beta</JB_name>
+      <JB_owner>bob</JB_owner>
+      <state>r</state>
+      <JAT_start_time>2026-05-14T10:00:00</JAT_start_time>
+      <queue_name>gpu.q@gpu01</queue_name>
+      <slots>1</slots>
+      <JB_submission_time>2026-05-14T09:59:00</JB_submission_time>
+      <hard_request name="h_vmem">2G</hard_request>
+      <JAT_scaled_usage_list>
+        <scaled>
+          <UA_name>cpu</UA_name>
+          <UA_value>120.0</UA_value>
+        </scaled>
+        <scaled>
+          <UA_name>vmem</UA_name>
+          <UA_value>1.250G</UA_value>
+        </scaled>
+      </JAT_scaled_usage_list>
+    </job_list>
+  </queue_info>
+  <job_info>
+    <job_list state="pending">
+      <JB_job_number>5010</JB_job_number>
+      <JB_name>pending_gamma</JB_name>
+      <JB_owner>carol</JB_owner>
+      <state>qw</state>
+      <slots>8</slots>
+      <JB_submission_time>2026-05-14T10:05:00</JB_submission_time>
+      <hard_request name="h_vmem">16G</hard_request>
+    </job_list>
+    <job_list state="pending">
+      <JB_job_number>5011</JB_job_number>
+      <JB_name>error_delta</JB_name>
+      <JB_owner>dave</JB_owner>
+      <state>Eqw</state>
+      <slots>2</slots>
+      <JB_submission_time>2026-05-14T10:06:00</JB_submission_time>
+    </job_list>
+  </job_info>
+</job_info>

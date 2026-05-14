@@ -1,0 +1,23 @@
+<?xml version='1.0'?>
+<job_info>
+  <queue_info>
+    <job_list state="running">
+      <job_number>9001</job_number>
+      <name>legacy_run</name>
+      <owner>erin</owner>
+      <state>r</state>
+      <start_time>2026-05-14T08:00:00</start_time>
+      <queue_name>old.q@old01</queue_name>
+      <slots>2</slots>
+    </job_list>
+  </queue_info>
+  <job_info>
+    <job_list state="pending">
+      <job_number>9002</job_number>
+      <name>legacy_wait</name>
+      <owner>frank</owner>
+      <state>qw</state>
+      <slots>1</slots>
+    </job_list>
+  </job_info>
+</job_info>
