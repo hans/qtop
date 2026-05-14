@@ -66,9 +66,18 @@ class Job:
         return self.state is JobState.RUNNING
 
     @property
-    def mem_request_bytes(self) -> int | None:
-        # h_vmem takes priority over mem_free for "requested" memory display
-        return self.h_vmem_bytes if self.h_vmem_bytes is not None else self.mem_free_bytes
+    def total_mem_request_bytes(self) -> int | None:
+        """Total memory reservation across all slots.
+
+        SGE's `h_vmem` and `mem_free` are per-slot limits — a job with
+        `-l h_vmem=8G -pe smp 4` reserves 32G total. Cumulative usage
+        fields (mem_usage GiB-seconds, vmem) are total across slots, so
+        this is the correct denominator for `mem_efficiency`.
+        """
+        per_slot = self.h_vmem_bytes if self.h_vmem_bytes is not None else self.mem_free_bytes
+        if per_slot is None:
+            return None
+        return per_slot * max(1, self.slots)
 
 
 @dataclass

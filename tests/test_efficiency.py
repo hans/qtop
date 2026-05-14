@@ -108,11 +108,22 @@ class TestCPUEfficiency:
 
 
 class TestMemEfficiency:
-    def test_basic_ratio(self):
+    """`h_vmem` is per-slot in SGE; efficiency divides by `slots * h_vmem`."""
+
+    def test_single_slot_uses_raw_h_vmem(self):
         client = SGEClient()
-        j = _job(mem_used=4 * 1024 ** 3, h_vmem=8 * 1024 ** 3)
+        j = _job(slots=1, mem_used=4 * 1024 ** 3, h_vmem=8 * 1024 ** 3)
+        client._update_efficiency([j])
+        assert j.mem_efficiency == pytest.approx(50.0)  # 4 / (1*8) = 50%
+
+    def test_multi_slot_multiplies_request(self):
+        """The bug-fix case: 4-slot job with 8G per slot is 32G total."""
+        client = SGEClient()
+        # 16 GiB total used out of 32 GiB reserved → 50%
+        j = _job(slots=4, mem_used=16 * 1024 ** 3, h_vmem=8 * 1024 ** 3)
         client._update_efficiency([j])
         assert j.mem_efficiency == pytest.approx(50.0)
+        # The old (broken) calculation would have produced 200% here.
 
     def test_none_when_request_missing(self):
         client = SGEClient()

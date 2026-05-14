@@ -431,8 +431,8 @@ class SGEClient:
         seen: set[str] = set()
         for j in jobs:
             seen.add(j.job_id)
-            # mem efficiency: pure ratio, no history needed
-            req = j.mem_request_bytes
+            # mem efficiency: total used vs total reserved (per-slot * slots).
+            req = j.total_mem_request_bytes
             if j.mem_used_bytes is not None and req is not None and req > 0:
                 j.mem_efficiency = j.mem_used_bytes / req * 100.0
             else:
@@ -521,6 +521,8 @@ class DemoClient(SGEClient):
     def _build_specs(self) -> list[_DemoJobSpec]:
         rng = self._rng
         specs: list[_DemoJobSpec] = []
+        # h_vmem is modeled as per-slot (matching SGE semantics); mem_used
+        # is the job-total (across all slots) so efficiency = used / (slots*h_vmem).
         # well-behaved: ~80% CPU eff, ~70% mem eff
         for i in range(4):
             slots = rng.choice([1, 2, 4, 8])
@@ -533,12 +535,12 @@ class DemoClient(SGEClient):
                 slots=slots,
                 h_vmem=h_vmem,
                 cpu_per_sec=0.8 * slots,
-                mem_used=int(0.7 * h_vmem),
+                mem_used=int(0.7 * h_vmem * slots),
                 profile="well",
                 submit_offset=3600 + i * 60,
                 start_offset=3300 + i * 60,
             ))
-        # mem-hogs: low CPU eff, high mem eff (>95% of request, sometimes over)
+        # mem-hogs: low CPU eff, high mem eff (>95% of total reservation)
         for i in range(2):
             slots = rng.choice([2, 4])
             h_vmem = 8 * 1024 ** 3
@@ -550,7 +552,7 @@ class DemoClient(SGEClient):
                 slots=slots,
                 h_vmem=h_vmem,
                 cpu_per_sec=0.15 * slots,
-                mem_used=int((0.95 + 0.05 * i) * h_vmem),
+                mem_used=int((0.95 + 0.05 * i) * h_vmem * slots),
                 profile="memhog",
                 submit_offset=7200,
                 start_offset=7000,
@@ -567,7 +569,7 @@ class DemoClient(SGEClient):
                 slots=slots,
                 h_vmem=h_vmem,
                 cpu_per_sec=1.8 * slots,  # using 1.8x what was requested
-                mem_used=int(0.2 * h_vmem),
+                mem_used=int(0.2 * h_vmem * slots),
                 profile="underspec",
                 submit_offset=1800,
                 start_offset=1700,

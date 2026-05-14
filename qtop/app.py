@@ -454,7 +454,7 @@ class QtopApp(App):
                 j.name,
                 _efficiency_cell(j.cpu_efficiency),
                 format_bytes(j.mem_used_bytes),
-                format_bytes(j.mem_request_bytes),
+                format_bytes(j.total_mem_request_bytes),
                 _efficiency_cell(j.mem_efficiency),
                 key=j.job_id,
             )

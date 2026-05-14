@@ -59,8 +59,11 @@ uv run qtop --demo                # synthetic data; no SGE cluster needed
 
 The efficiency panel shows running jobs only.
 
-- **Memory** efficiency = `mem_used / h_vmem_requested * 100`. Sourced
-  from `qstat -ext -r -xml`.
+- **Memory** efficiency = `mem_used / (slots * h_vmem) * 100`. SGE
+  reserves `h_vmem` *per slot*, so a `-pe smp 4 -l h_vmem=8G` job has
+  32G reserved, not 8G — multi-slot jobs would otherwise show >100%
+  efficiency when they're actually under-using their reservation.
+  Sourced from `qstat -ext -r -xml`.
 - **CPU** efficiency = `(Δcpu_seconds / (Δt · requested_slots)) * 100`.
   SGE only exposes cumulative CPU time, so `qtop` keeps a small rolling
   history per job and computes the delta across each refresh interval.

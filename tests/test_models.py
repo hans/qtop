@@ -49,6 +49,38 @@ class TestParseMemory:
         assert parse_memory("hello") is None
 
 
+class TestTotalMemRequest:
+    """`h_vmem` is per-slot in SGE; total reservation = h_vmem * slots."""
+
+    def _job(self, **kw):
+        from qtop.models import Job, JobState
+        defaults = dict(job_id="x", name="x", user="u",
+                        state=JobState.RUNNING, raw_state="r", slots=1)
+        defaults.update(kw)
+        return Job(**defaults)
+
+    def test_single_slot_returns_raw_value(self):
+        j = self._job(slots=1, h_vmem_bytes=8 * 1024 ** 3)
+        assert j.total_mem_request_bytes == 8 * 1024 ** 3
+
+    def test_multi_slot_multiplies(self):
+        j = self._job(slots=4, h_vmem_bytes=8 * 1024 ** 3)
+        assert j.total_mem_request_bytes == 32 * 1024 ** 3
+
+    def test_falls_back_to_mem_free(self):
+        j = self._job(slots=2, h_vmem_bytes=None, mem_free_bytes=4 * 1024 ** 3)
+        assert j.total_mem_request_bytes == 8 * 1024 ** 3
+
+    def test_none_when_no_request(self):
+        j = self._job(slots=4, h_vmem_bytes=None, mem_free_bytes=None)
+        assert j.total_mem_request_bytes is None
+
+    def test_zero_slots_treated_as_one(self):
+        """Defensive: slots=0 shouldn't zero out the request."""
+        j = self._job(slots=0, h_vmem_bytes=8 * 1024 ** 3)
+        assert j.total_mem_request_bytes == 8 * 1024 ** 3
+
+
 class TestFormatBytes:
     def test_roundtrip_ish(self):
         assert format_bytes(8 * 1024 ** 3) == "8.0G"
