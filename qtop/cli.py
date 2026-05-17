@@ -34,6 +34,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run with synthetic data, no SGE cluster required.",
     )
+    p.add_argument(
+        "--export",
+        choices=("json", "csv"),
+        help="Print jobs to stdout in the chosen format and exit (no TUI).",
+    )
     return p
 
 
@@ -48,6 +53,8 @@ def resolve_user(args: argparse.Namespace) -> str:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     user = resolve_user(args)
+    if args.demo and not args.user and not args.all:
+        user = "*"
 
     if args.demo:
         client = DemoClient()
@@ -60,6 +67,17 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
         client = SGEClient()
+
+    if args.export:
+        from .export import emit_jobs
+
+        try:
+            jobs = client.fetch_jobs(user=user)
+        except RuntimeError as exc:
+            print(f"qtop: {exc}", file=sys.stderr)
+            return 1
+        emit_jobs(jobs, args.export, sys.stdout)
+        return 0
 
     # Lazy import so --help / error paths don't require Textual.
     from .app import QtopApp
