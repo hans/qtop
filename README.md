@@ -30,6 +30,13 @@ uv run qtop --interval 5          # refresh every 5s (default 10)
 uv run qtop --demo                # synthetic data; no SGE cluster needed
 ```
 
+For headless scripts, `--export` polls once, writes to stdout, and exits:
+
+```sh
+uv run qtop --export json --demo | jq '.[].state' | sort | uniq -c
+uv run qtop --export csv --all > jobs.csv
+```
+
 `qtop` exits non-zero with a clear error if `qstat` is not on PATH and
 `--demo` was not passed.
 
